@@ -340,6 +340,7 @@
         "HA1NicName": "[concat(parameters('vmNamePrefix'), '-HA1-interface')]",
         "HA2NicName": "[concat(parameters('vmNamePrefix'), '-HA2-interface')]",
         "nsgname-mgmt": "[concat(parameters('vmNamePrefix'), '-NSG')]",
+        "availabilitySetName": "[concat(parameters('vmNamePrefix'), '-AvSet')]",
         "lan-default-rt": "[concat(parameters('subnetLANName'), '-RT')]",
         "HA1PublicIpAddressId": {
             "id": "[resourceId(parameters('HA1PublicIpResourceGroupName'), 'Microsoft.Network/publicIPAddresses', parameters('HA1PublicIpName'))]"
@@ -405,6 +406,19 @@
                 "name": "[parameters('storageAccountType')]"
             }
         },
+        {
+            "type": "Microsoft.Compute/availabilitySets",
+            "name": "[variables('availabilitySetName')]",
+            "apiVersion": "2018-10-01",
+            "location": "[parameters('location')]",
+            "properties": {
+              "platformFaultDomainCount": 2,
+              "platformUpdateDomainCount": 5
+            },
+            "sku": {
+              "name": "Aligned"
+            }
+          },
         {
             "condition": "[equals(parameters('HA1PublicIpNewOrExisting'), 'new')]",
             "type": "Microsoft.Network/publicIPAddresses",
@@ -832,6 +846,7 @@
             "name": "[variables('Vm1Name')]",
             "location": "[parameters('location')]",
             "dependsOn": [
+                "[concat('Microsoft.Compute/availabilitySets/', variables('availabilitySetName'))]",
                 "[concat('Microsoft.Network/networkInterfaces/', variables('HA1NicName'), '-X1')]",
                 "[concat('Microsoft.Network/networkInterfaces/', variables('HA1NicName'), '-X0')]",
                 "[concat('Microsoft.Network/networkInterfaces/', variables('HA1NicName'), '-X2')]"
@@ -842,6 +857,9 @@
                 "publisher": "[variables('imagePublisher')]"
             },
             "properties": {
+                "availabilitySet": {
+                    "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('availabilitySetName'))]"
+                },
                 "hardwareProfile": {
                     "vmSize": "[parameters('vmSize')]"
                 },
@@ -904,6 +922,7 @@
             "name": "[variables('Vm2Name')]",
             "location": "[parameters('location')]",
             "dependsOn": [
+                "[concat('Microsoft.Compute/availabilitySets/', variables('availabilitySetName'))]",
                 "[concat('Microsoft.Network/networkInterfaces/', variables('HA2NicName'), '-X1')]",
                 "[concat('Microsoft.Network/networkInterfaces/', variables('HA2NicName'), '-X0')]",
                 "[concat('Microsoft.Network/networkInterfaces/', variables('HA2NicName'), '-X2')]"
@@ -914,6 +933,9 @@
                 "publisher": "[variables('imagePublisher')]"
             },
             "properties": {
+                "availabilitySet": {
+                    "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('availabilitySetName'))]"
+                },
                 "hardwareProfile": {
                     "vmSize": "[parameters('vmSize')]"
                 },
