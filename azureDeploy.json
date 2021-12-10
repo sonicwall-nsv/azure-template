@@ -351,7 +351,17 @@
         "HAFloatPublicIpAddressId": {
             "id": "[resourceId(parameters('HAFloatPublicIpResourceGroupName'), 'Microsoft.Network/publicIPAddresses', parameters('HAFloatPublicIpName'))]"
         },
-        "HAFloatPrivateIPSuffix": "250",
+        "IPRangeInMask": {
+            "24": 256, "25": 128, "26": 64, "27": 32, "28": 16, "29": 8
+        },
+        "subnetWANPrefixLen": "[substring(parameters('subnetWANPrefix'), add(indexOf(parameters('subnetWANPrefix'), '/'), 1))]",
+        "subnetWANIPLast": "[int(substring(parameters('subnetWANPrefix'), add(lastIndexOf(parameters('subnetWANPrefix'), '.'), 1), sub(indexOf(parameters('subnetWANPrefix'), '/'), add(lastIndexOf(parameters('subnetWANPrefix'), '.'), 1))))]",
+        "subnetWANRange": "[if(less(int(variables('subnetWANPrefixLen')), 24), 256, variables('IPRangeInMask')[variables('subnetWANPrefixLen')])]",
+        "HASubnetWANFloatIPSuffix": "[string(sub(mul(variables('subnetWANRange'), add(div(variables('subnetWANIPLast'), variables('subnetWANRange')), 1)), 2))]",
+        "subnetLANPrefixLen": "[substring(parameters('subnetLANPrefix'), add(indexOf(parameters('subnetLANPrefix'), '/'), 1))]",
+        "subnetLANIPLast": "[int(substring(parameters('subnetLANPrefix'), add(lastIndexOf(parameters('subnetLANPrefix'), '.'), 1), sub(indexOf(parameters('subnetLANPrefix'), '/'), add(lastIndexOf(parameters('subnetLANPrefix'), '.'), 1))))]",
+        "subnetLANRange": "[if(less(int(variables('subnetLANPrefixLen')), 24), 256, variables('IPRangeInMask')[variables('subnetLANPrefixLen')])]",
+        "HASubnetLANFloatIPSuffix": "[string(sub(mul(variables('subnetLANRange'), add(div(variables('subnetLANIPLast'), variables('subnetLANRange')), 1)), 2))]",
         "Vm1SshPasswordOsProfile": {
             "computerName": "[variables('Vm1Name')]",
             "adminUsername": "[parameters('SSHUsername')]",
@@ -646,7 +656,7 @@
                         "properties": {
                             "addressPrefix": "0.0.0.0/0",
                             "nextHopType": "VirtualAppliance",
-                            "nextHopIpAddress": "[concat(substring(parameters('subnetLANPrefix'), 0, lastIndexOf(parameters('subnetLANPrefix'), '.')), '.', variables('HAFloatPrivateIPSuffix'))]"
+                            "nextHopIpAddress": "[concat(substring(parameters('subnetLANPrefix'), 0, lastIndexOf(parameters('subnetLANPrefix'), '.')), '.', variables('HASubnetLANFloatIPSuffix'))]"
                         }
                     }
                 ]
@@ -686,7 +696,7 @@
                         "name": "[concat('ipconfig', '-float')]",
                         "properties": {
                             "privateIPAllocationMethod": "Static",
-                            "privateIPAddress": "[concat(substring(parameters('subnetWANPrefix'), 0, lastIndexOf(parameters('subnetWANPrefix'), '.')), '.', variables('HAFloatPrivateIPSuffix'))]",
+                            "privateIPAddress": "[concat(substring(parameters('subnetWANPrefix'), 0, lastIndexOf(parameters('subnetWANPrefix'), '.')), '.', variables('HASubnetWANFloatIPSuffix'))]",
                             "publicIPAddress": "[if(not(equals(parameters('HAFloatPublicIpNewOrExisting'), 'none')), variables('HAFloatPublicIpAddressId') , json('null'))]",
                             "subnet": {
                                 "id": "[resourceId(parameters('virtualNetworkResourceGroupName'), 'Microsoft.Network/virtualNetworks/subnets/', parameters('virtualNetworkName'), parameters('subnetWANName'))]"
@@ -724,7 +734,7 @@
                         "name": "[concat('ipconfig', '-float')]",
                         "properties": {
                             "privateIPAllocationMethod": "Static",
-                            "privateIPAddress": "[concat(substring(parameters('subnetLANPrefix'), 0, lastIndexOf(parameters('subnetLANPrefix'), '.')), '.', variables('HAFloatPrivateIPSuffix'))]",
+                            "privateIPAddress": "[concat(substring(parameters('subnetLANPrefix'), 0, lastIndexOf(parameters('subnetLANPrefix'), '.')), '.', variables('HASubnetLANFloatIPSuffix'))]",
                             "subnet": {
                                 "id": "[resourceId(parameters('virtualNetworkResourceGroupName'), 'Microsoft.Network/virtualNetworks/subnets/', parameters('virtualNetworkName'), parameters('subnetLANName'))]"
                             }
