@@ -115,6 +115,10 @@
     "virtualNetworkNewOrExisting": {
       "type": "string",
       "defaultValue": "new",
+      "allowedValues": [
+        "new",
+        "existing"
+      ],
       "metadata": {
         "description": "Determines whether or not a new virtual network should be provisioned."
       }
@@ -173,6 +177,10 @@
     "publicIpNewOrExisting": {
       "type": "string",
       "defaultValue": "new",
+      "allowedValues": [
+        "new",
+        "existing"
+      ],
       "metadata": {
         "description": "Determines whether or not a new public ip should be provisioned."
       }
@@ -219,6 +227,38 @@
       "metadata": {
         "description": "Name of the resource group for the public ip address"
       }
+    },
+    "availabilityZone": {
+      "type": "string",
+      "defaultValue": "none",
+      "allowedValues": [
+        "none",
+        "1",
+        "2",
+        "3"
+      ],
+      "metadata": {
+        "description": "Availability Zone number for SonicWall NSv"
+      }
+    },
+    "availabilitySetNewOrExisting": {
+      "type": "string",
+      "defaultValue": "none",
+      "allowedValues": [
+        "none",
+        "new",
+        "existing"
+      ],
+      "metadata": {
+        "description": "Availability Set for SonicWall NSv"
+      }
+    },
+    "availabilitySetName": {
+      "type": "string",
+      "defaultValue": "[concat(parameters('vmName'), '-AvSet')]",
+      "metadata": {
+        "description": "new or existing Availability Set name"
+      }
     }
   },
   "variables": {
@@ -232,6 +272,10 @@
     "nsgname-mgmt": "[concat(parameters('vmName'), '-NSG')]",
     "publicIpAddressId": {
       "id": "[resourceId(parameters('publicIpResourceGroupName'), 'Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
+    },
+    "zoneArray": "[array(parameters('availabilityZone'))]",
+    "availabilitySetId": {
+      "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]"
     },
     "vmSshPasswordOsProfile": {
       "computerName": "[parameters('vmName')]",
@@ -269,6 +313,20 @@
       }
     },
     {
+        "type": "Microsoft.Compute/availabilitySets",
+        "condition": "[equals(parameters('availabilitySetNewOrExisting'), 'new')]",
+        "name": "[parameters('availabilitySetName')]",
+        "apiVersion": "2018-10-01",
+        "location": "[parameters('location')]",
+        "properties": {
+          "platformFaultDomainCount": 2,
+          "platformUpdateDomainCount": 5
+        },
+        "sku": {
+          "name": "Aligned"
+        }
+    },
+    {
       "condition": "[equals(parameters('publicIpNewOrExisting'), 'new')]",
       "type": "Microsoft.Network/publicIPAddresses",
       "apiVersion": "2018-04-01",
@@ -277,6 +335,7 @@
       "sku": {
         "name": "[parameters('publicIpSku')]"
       },
+      "zones": "[if(equals(parameters('availabilityZone'), 'none'), json('null'), variables('zoneArray'))]",
       "properties": {
         "publicIPAllocationMethod": "[parameters('publicIpAllocationMethod')]",
         "dnsSettings": {
@@ -511,7 +570,9 @@
         "product": "[variables('imageOffer')]",
         "publisher": "[variables('imagePublisher')]"
       },
+      "zones": "[if(equals(parameters('availabilityZone'), 'none'), json('null'), variables('zoneArray'))]",
       "properties": {
+        "availabilitySet": "[if(equals(parameters('availabilitySetNewOrExisting'), 'none'), json('null'), variables('availabilitySetId'))]",
         "hardwareProfile": {
           "vmSize": "[parameters('vmSize')]"
         },
