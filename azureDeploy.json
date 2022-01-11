@@ -67,6 +67,7 @@
     },
     "SSHPassword": {
       "type": "securestring",
+      "defaultValue": "",
       "metadata": {
         "description": "The password for the above SSH user. Password must contain one non alpha-numeric character, one uppercase alpha-numeric character and one numeric character"
       }
@@ -110,13 +111,6 @@
         "description": "Azure VM size for SonicWall-NSv model, select Standard_D2_v2 for NSv 200, select Standard_D3_v2 for NSv 400, select Standard_D4_v2 for NSv 800 and select Standard_D5_v2 for NSv 1600"
       },
       "defaultValue": "Standard_D3_v2"
-    },
-    "baseUrl": {
-      "type": "string",
-      "metadata": {
-        "artifactsBaseUrl": ""
-      },
-      "defaultValue": "https://raw.githubusercontent.com/sonicwall/sonicwall-nsv-azure-templates/master"
     },
     "virtualNetworkNewOrExisting": {
       "type": "string",
@@ -239,7 +233,28 @@
     "publicIpAddressId": {
       "id": "[resourceId(parameters('publicIpResourceGroupName'), 'Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
     },
-    "vmTemplateUrl": "[concat(parameters('baseUrl'), '/virtual-machine-', parameters('authenticationType'),'.json')]"
+    "vmSshPasswordOsProfile": {
+      "computerName": "[parameters('vmName')]",
+      "adminUsername": "[parameters('SSHUserName')]",
+      "adminPassword": "[parameters('SSHPassword')]"
+    },
+    "unusedSshKeyToSkipCheck": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQCEn1Vu+191kTYzCJ3EP14BMphL/WUf1oqGyZSPqzG6N16+i6HiHTC1xNaXz5ZPvWn50rf4mR0ftupmxtOJxD7D",
+    "sshKey": "[if(equals(parameters('authenticationType'), 'password'), variables('unusedSshKeyToSkipCheck'), parameters('sshKey'))]",
+    "vmSshKeyOsProfile": {
+      "computerName": "[parameters('vmName')]",
+      "adminUsername": "[parameters('SSHUserName')]",
+      "linuxConfiguration": {
+        "disablePasswordAuthentication": true,
+        "ssh": {
+          "publicKeys": [
+            {
+              "path": "[concat('/home/', parameters('SSHUserName'), '/.ssh/authorized_keys')]",
+              "keyData": "[variables('sshKey')]"
+            }
+          ]
+        }
+      }
+    }
   },
   "resources": [
     {
@@ -482,57 +497,52 @@
       }
     },
     {
-      "name": "SonicWall-NSv-VM",
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2018-05-01",
+      "apiVersion": "2018-04-01",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[parameters('vmName')]",
+      "location": "[parameters('location')]",
       "dependsOn": [
         "[parameters('storageAccount')]",
         "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'), '-X1')]",
         "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'), '-X0')]"
       ],
+      "plan": {
+        "name": "[parameters('imageSku')]",
+        "product": "[variables('imageOffer')]",
+        "publisher": "[variables('imagePublisher')]"
+      },
       "properties": {
-        "mode": "Incremental",
-        "templateLink": {
-          "uri": "[variables('vmTemplateUrl')]",
-          "contentVersion": "1.0.0.0"
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
         },
-        "parameters": {
-          "location": {
-            "value": "[parameters('location')]"
+        "osProfile": "[if(equals(parameters('authenticationType'), 'password'), variables('vmSshPasswordOsProfile'), variables('vmSshKeyOsProfile'))]",
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[parameters('imageSku')]",
+            "version": "[variables('imageVersion')]"
           },
-          "vmName": {
-            "value": "[parameters('vmName')]"
-          },
-          "imageSku": {
-            "value": "[parameters('imageSku')]"
-          },
-          "imageVersion": {
-            "value": "[variables('imageVersion')]"
-          },
-          "imageOffer": {
-            "value": "[variables('imageOffer')]"
-          },
-          "imagePublisher": {
-            "value": "[variables('imagePublisher')]"
-          },
-          "nicName": {
-            "value": "[variables('nicName')]"
-          },
-          "vmSize": {
-            "value": "[parameters('vmSize')]"
-          },
-          "SSHUserName": {
-            "value": "[parameters('SSHUserName')]"
-          },
-          "SSHPassword": {
-            "value": "[parameters('SSHPassword')]"
-          },
-          "storageAccount": {
-            "value": "[parameters('storageAccount')]"
-          },
-          "sshKey": {
-            "value": "[parameters('sshKey')]"
+          "osDisk": {
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
           }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('nicName'),'-X1'))]",
+              "properties": {
+                "primary": true
+              }
+            },
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('nicName'),'-X0'))]",
+              "properties": {
+                "primary": false
+              }
+            }
+          ]
         }
       }
     }
