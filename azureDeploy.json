@@ -561,7 +561,7 @@
       "name": "[parameters('vmName')]",
       "location": "[parameters('location')]",
       "dependsOn": [
-        "[parameters('storageAccount')]",
+        "[concat('Microsoft.Storage/storageAccounts/', parameters('storageAccount'))]",
         "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'), '-X1')]",
         "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'), '-X0')]"
       ],
