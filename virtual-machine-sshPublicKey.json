@@ -35,6 +35,9 @@
     "storageAccount": {
       "type": "string"
     },
+    "availabilityZone": {
+      "type": "string"
+    },
     "availabilitySetName": {
       "type": "string"
     },
@@ -43,7 +46,11 @@
     }
   },
   "variables": {
-	"sshKeyPath": "[concat('/home/',parameters('SSHUserName'),'/.ssh/authorized_keys')]"
+    "availabilityZoneArray": "[array(parameters('availabilityZone'))]",
+    "availabilitySetId": {
+      "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]"
+    },
+	  "sshKeyPath": "[concat('/home/',parameters('SSHUserName'),'/.ssh/authorized_keys')]"
   },
   "resources": [
   {
@@ -56,10 +63,9 @@
            "product": "[parameters('imageOffer')]",
            "publisher": "[parameters('imagePublisher')]"
         },
+        "zones": "[if(equals(parameters('availabilityZone'), 'none'), json('null'), variables('availabilityZoneArray'))]",
         "properties": {
-            "availabilitySet": {
-              "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]"
-            },
+            "availabilitySet": "[if(equals(parameters('availabilityZone'), 'none'), variables('availabilitySetId'), json('null'))]",
             "hardwareProfile": {
                 "vmSize": "[parameters('vmSize')]"
             },

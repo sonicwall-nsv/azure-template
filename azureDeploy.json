@@ -221,6 +221,32 @@
         "description": "Name of the resource group for the public ip address"
       }
     },
+    "availabilityZoneVM1": {
+      "type": "string",
+      "defaultValue": "none",
+      "allowedValues": [
+        "none",
+        "1",
+        "2",
+        "3"
+      ],
+      "metadata": {
+        "description": "Availability Zone number for SonicWall NSv #1"
+      }
+    },
+    "availabilityZoneVM2": {
+      "type": "string",
+      "defaultValue": "none",
+      "allowedValues": [
+        "none",
+        "1",
+        "2",
+        "3"
+      ],
+      "metadata": {
+        "description": "Availability Zone number for SonicWall NSv #2"
+      }
+    },
     "createInternalLoadBalancer": {
       "type": "string",
       "defaultValue": "No",
@@ -718,6 +744,9 @@
           "storageAccount": {
             "value": "[parameters('storageAccount')]"
           },
+          "availabilityZone": {
+            "value": "[parameters('availabilityZoneVM1')]"
+          },
           "availabilitySetName": {
             "value": "[variables('availabilitySetName')]"
           },
@@ -776,6 +805,9 @@
           },
           "storageAccount": {
             "value": "[parameters('storageAccount')]"
+          },
+          "availabilityZone": {
+            "value": "[parameters('availabilityZoneVM2')]"
           },
           "availabilitySetName": {
             "value": "[variables('availabilitySetName')]"
