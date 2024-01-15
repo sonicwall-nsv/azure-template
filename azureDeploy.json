@@ -73,7 +73,7 @@
         },
         "imageSku": {
             "type": "string",
-            "defaultValue": "snwl-nsv-byol",
+            "defaultValue": "snwl-nsv-scx",
             "metadata": {
                 "description": "The name of the Azure product SKU to load"
             }
@@ -92,18 +92,17 @@
             },
             "defaultValue": "0.0.0.0/0"
         },
-        "vmSize": {
+        "nsvModel": {
             "type": "string",
             "allowedValues": [
-                "Standard_D2_v2",
-                "Standard_D3_v2",
-                "Standard_D4_v2",
-                "Standard_D5_v2"
+                "NSv 270",
+                "NSv 470",
+                "NSv 870"
             ],
             "metadata": {
-                "description": "Azure VM size for SonicWall-NSv model, select Standard_D2_v2 for NSv 200, select Standard_D3_v2 for NSv 400, select Standard_D4_v2 for NSv 800 and select Standard_D5_v2 for NSv 1600"
+                "description": "SonicWall-NSv model, NSv 270 VM size Standard_DS2_v2 or Standard_D2_v2, NSv 470 VM size Standard_DS3_v2 or Standard_D3_v2, NSv 870 VM size Standard_DS4_v2 or Standard_D4_v2, depending on the SKU selected"
             },
-            "defaultValue": "Standard_D3_v2"
+            "defaultValue": "NSv 470"
         },
         "virtualNetworkNewOrExisting": {
             "type": "string",
@@ -330,6 +329,19 @@
         }
     },
     "variables": {
+        "trustedLaunchSecurityProfile": {
+            "securityType": "TrustedLaunch",
+            "uefiSettings": {
+                "secureBootEnabled": false,
+                "vTpmEnabled": true
+            }
+        },
+        "vmModels": {
+            "NSv 270": "[if(sonicwall.isLegacySku(parameters('imageSku')), 'Standard_D2_v2', 'Standard_DS2_v2')]",
+            "NSv 470": "[if(sonicwall.isLegacySku(parameters('imageSku')), 'Standard_D3_v2', 'Standard_DS3_v2')]",
+            "NSv 870": "[if(sonicwall.isLegacySku(parameters('imageSku')), 'Standard_D4_v2', 'Standard_DS4_v2')]"
+        },
+        "vmSize": "[variables('vmModels')[parameters('nsvModel')]]",
         "imagePublisher": "sonicwall-inc",
         "imageOffer": "sonicwall-nsz-azure",
         "imageVersionNumberPrefix": "[if(equals(indexOf(parameters('imageVersion'), '.'), -1), '0.0.', '')]",
@@ -404,6 +416,25 @@
         },
         "RoleContributor": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]"
     },
+    "functions": [
+        {
+            "namespace": "sonicwall",
+            "members": {
+                "isLegacySku": {
+                    "parameters": [
+                        {
+                            "name": "sku",
+                            "type": "string"
+                        }
+                    ],
+                    "output": {
+                        "type": "bool",
+                        "value": "[contains(createArray('snwl-nsv-654-beta-r', 'snwl-nsv-beta-i', 'snwl-nsv-beta-p', 'snwl-nsv-beta-q', 'snwl-nsv-byol', 'snwl-nsv-byol-654', 'snwl-nsv-byol-v4'), toLower(parameters('sku')))]"
+                    }
+                }
+            }
+        }
+    ],
     "resources": [
         {
             "condition": "[equals(parameters('storageAccountNewOrExisting'), 'new')]",
@@ -422,13 +453,13 @@
             "apiVersion": "2018-10-01",
             "location": "[parameters('location')]",
             "properties": {
-              "platformFaultDomainCount": 2,
-              "platformUpdateDomainCount": 5
+                "platformFaultDomainCount": 2,
+                "platformUpdateDomainCount": 5
             },
             "sku": {
-              "name": "Aligned"
+                "name": "Aligned"
             }
-          },
+        },
         {
             "condition": "[equals(parameters('HA1PublicIpNewOrExisting'), 'new')]",
             "type": "Microsoft.Network/publicIPAddresses",
@@ -857,7 +888,7 @@
             }
         },
         {
-            "apiVersion": "2018-04-01",
+            "apiVersion": "2020-12-01",
             "type": "Microsoft.Compute/virtualMachines",
             "name": "[variables('Vm1Name')]",
             "location": "[parameters('location')]",
@@ -877,9 +908,10 @@
                     "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('availabilitySetName'))]"
                 },
                 "hardwareProfile": {
-                    "vmSize": "[parameters('vmSize')]"
+                    "vmSize": "[variables('vmSize')]"
                 },
                 "osProfile": "[if(equals(parameters('authenticationType'), 'password'), variables('Vm1SshPasswordOsProfile'), variables('Vm1SshKeyOsProfile'))]",
+                "securityProfile": "[if(sonicwall.isLegacySku(parameters('imageSku')), json('null'), variables('trustedLaunchSecurityProfile'))]",
                 "storageProfile": {
                     "imageReference": {
                         "publisher": "[variables('imagePublisher')]",
@@ -928,12 +960,12 @@
             ],
             "properties": {
                 "roleDefinitionId": "[variables('RoleContributor')]",
-                "principalId": "[reference(variables('Vm1Name'), '2018-04-01', 'Full').identity.principalId]",
+                "principalId": "[reference(variables('Vm1Name'), '2020-12-01', 'Full').identity.principalId]",
                 "scope": "[resourceGroup().id]"
             }
         },
         {
-            "apiVersion": "2018-04-01",
+            "apiVersion": "2020-12-01",
             "type": "Microsoft.Compute/virtualMachines",
             "name": "[variables('Vm2Name')]",
             "location": "[parameters('location')]",
@@ -953,9 +985,10 @@
                     "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('availabilitySetName'))]"
                 },
                 "hardwareProfile": {
-                    "vmSize": "[parameters('vmSize')]"
+                    "vmSize": "[variables('vmSize')]"
                 },
                 "osProfile": "[if(equals(parameters('authenticationType'), 'password'), variables('Vm2SshPasswordOsProfile'), variables('Vm2SshKeyOsProfile'))]",
+                "securityProfile": "[if(sonicwall.isLegacySku(parameters('imageSku')), json('null'), variables('trustedLaunchSecurityProfile'))]",
                 "storageProfile": {
                     "imageReference": {
                         "publisher": "[variables('imagePublisher')]",
@@ -1004,7 +1037,7 @@
             ],
             "properties": {
                 "roleDefinitionId": "[variables('RoleContributor')]",
-                "principalId": "[reference(variables('Vm2Name'), '2018-04-01', 'Full').identity.principalId]",
+                "principalId": "[reference(variables('Vm2Name'), '2020-12-01', 'Full').identity.principalId]",
                 "scope": "[resourceGroup().id]"
             }
         }
