@@ -374,6 +374,8 @@
         "subnetLANIPLast": "[int(substring(parameters('subnetLANPrefix'), add(lastIndexOf(parameters('subnetLANPrefix'), '.'), 1), sub(indexOf(parameters('subnetLANPrefix'), '/'), add(lastIndexOf(parameters('subnetLANPrefix'), '.'), 1))))]",
         "subnetLANRange": "[if(less(int(variables('subnetLANPrefixLen')), 24), 256, variables('IPRangeInMask')[variables('subnetLANPrefixLen')])]",
         "HASubnetLANFloatIPSuffix": "[string(sub(mul(variables('subnetLANRange'), add(div(variables('subnetLANIPLast'), variables('subnetLANRange')), 1)), 2))]",
+        "unusedSshKeyToSkipCheck": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQCEn1Vu+191kTYzCJ3EP14BMphL/WUf1oqGyZSPqzG6N16+i6HiHTC1xNaXz5ZPvWn50rf4mR0ftupmxtOJxD7D",
+        "sshKey": "[if(equals(parameters('authenticationType'), 'password'), variables('unusedSshKeyToSkipCheck'), parameters('sshKey'))]",
         "Vm1SshPasswordOsProfile": {
             "computerName": "[variables('Vm1Name')]",
             "adminUsername": "[parameters('SSHUsername')]",
@@ -388,7 +390,7 @@
                     "publicKeys": [
                         {
                             "path": "[concat('/home/', parameters('SSHUserName'), '/.ssh/authorized_keys')]",
-                            "keyData": "[parameters('SSHKey')]"
+                            "keyData": "[variables('sshKey')]"
                         }
                     ]
                 }
@@ -408,7 +410,7 @@
                     "publicKeys": [
                         {
                             "path": "[concat('/home/', parameters('SSHUserName'), '/.ssh/authorized_keys')]",
-                            "keyData": "[parameters('SSHKey')]"
+                            "keyData": "[variables('sshKey')]"
                         }
                     ]
                 }
