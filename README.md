@@ -34,7 +34,7 @@ To find out more about ARM templates refer to https://docs.microsoft.com/en-us/a
 
 # License
 
-Copyright © 2020 SonicWall, Inc.
+Copyright © 2024 SonicWall, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated files (the "Software"), to utilize the Software
