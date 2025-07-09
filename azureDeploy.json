@@ -81,16 +81,16 @@
     },
     "imageSku": {
       "type": "string",
-      "defaultValue": "snwl-nsv-byol",
+      "defaultValue": "scx",
       "metadata": {
-        "description": "The name of the Azure product to load"
+        "description": "The type of SKU. Specify \"scx\" for 7.1 images or \"byol\" for 7.0 images."
       }
     },
     "imageVersion": {
       "type": "string",
       "defaultValue": "latest",
       "metadata": {
-        "description": "The version of loaded NSv image"
+        "description": "The version of loaded NSv image. Specifying \"latest\" will automatically select the latest version of the image in the corresponding \"Image Sku Type\". Or a specific version can be specified. For example \"7.0.2363\" for \"byol\". Versions available in the SKUs can be listed by running \"az vm image list --output table --all --publisher sonicwall-inc --offer sonicwall-nsz-azure\" in Azure Bash Cloud Shell."
       }
     },
     "managementAccessIPSource": {
@@ -99,18 +99,17 @@
         "description": "Public IP address allowed access SonicWall NSv HTTPS & SSH management "
       }
     },
-    "vmSize": {
+    "nsvModel": {
       "type": "string",
       "allowedValues": [
-        "Standard_D2_v2",
-        "Standard_D3_v2",
-        "Standard_D4_v2",
-        "Standard_D5_v2"
+        "NSv 270",
+        "NSv 470",
+        "NSv 870"
       ],
       "metadata": {
-        "description": "Azure VM size for SonicWall-NSv model, select Standard_D2_v2 for NSv 200, select Standard_D3_v2 for NSv 400, select Standard_D4_v2 for NSv 800 and select Standard_D5_v2 for NSv 1600"
+        "description": "SonicWall-NSv model. Choosing NSv 270, 470 or 870 with SKU \"byol\" will use Standard_D3_v2, Standard_D3_v2, Standard_D4_v2 respectively. Choosing NSv 270, 470 or 870 with SKU \"scx\" will use Standard_DS3_v2, Standard_DS3_v2, Standard_DS4_v2 respectively."
       },
-      "defaultValue": "Standard_D3_v2"
+      "defaultValue": "NSv 470"
     },
     "virtualNetworkNewOrExisting": {
       "type": "string",
@@ -264,6 +263,7 @@
   "variables": {
     "imagePublisher": "sonicwall-inc",
     "imageOffer": "sonicwall-nsz-azure",
+    "imageSku": "[concat('snwl-nsv-', parameters('imageSku'))]",
     "imageVersionNumberPrefix": "[if(equals(indexOf(parameters('imageVersion'), '.'), -1), '0.0.', '')]",
     "imageVersionNumber": "[concat(variables('imageVersionNumberPrefix'), parameters('imageVersion'))]",
     "imageVersion": "[if(equals(parameters('imageVersion'), 'latest'), 'latest', variables('imageVersionNumber'))]",
@@ -298,8 +298,39 @@
           ]
         }
       }
+    },
+    "trustedLaunchSecurityProfile": {
+      "securityType": "TrustedLaunch",
+      "uefiSettings": {
+        "secureBootEnabled": false,
+        "vTpmEnabled": true
+      }
+    },
+    "vmSize": {
+      "NSv 270": "[if(sonicwall.isLegacySku(variables('imageSku')), 'Standard_D3_v2', 'Standard_DS3_v2')]",
+      "NSv 470": "[if(sonicwall.isLegacySku(variables('imageSku')), 'Standard_D3_v2', 'Standard_DS3_v2')]",
+      "NSv 870": "[if(sonicwall.isLegacySku(variables('imageSku')), 'Standard_D4_v2', 'Standard_DS4_v2')]"
     }
   },
+  "functions": [
+    {
+      "namespace": "sonicwall",
+      "members": {
+        "isLegacySku": {
+          "parameters": [
+            {
+              "name": "sku",
+              "type": "string"
+            }
+          ],
+          "output": {
+            "type": "bool",
+            "value": "[contains(createArray('snwl-nsv-654-beta-r', 'snwl-nsv-beta-i', 'snwl-nsv-beta-p', 'snwl-nsv-beta-q', 'snwl-nsv-byol', 'snwl-nsv-byol-654', 'snwl-nsv-byol-v4'), toLower(parameters('sku')))]"
+          }
+        }
+      }
+    }
+  ],
   "resources": [
     {
       "condition": "[equals(parameters('storageAccountNewOrExisting'), 'new')]",
@@ -556,7 +587,7 @@
       }
     },
     {
-      "apiVersion": "2018-04-01",
+      "apiVersion": "2020-12-01",
       "type": "Microsoft.Compute/virtualMachines",
       "name": "[parameters('vmName')]",
       "location": "[parameters('location')]",
@@ -566,7 +597,7 @@
         "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'), '-X0')]"
       ],
       "plan": {
-        "name": "[parameters('imageSku')]",
+        "name": "[variables('imageSku')]",
         "product": "[variables('imageOffer')]",
         "publisher": "[variables('imagePublisher')]"
       },
@@ -574,14 +605,15 @@
       "properties": {
         "availabilitySet": "[if(equals(parameters('availabilitySetNewOrExisting'), 'none'), json('null'), variables('availabilitySetId'))]",
         "hardwareProfile": {
-          "vmSize": "[parameters('vmSize')]"
+          "vmSize": "[variables('vmSize')[parameters('nsvModel')]]"
         },
         "osProfile": "[if(equals(parameters('authenticationType'), 'password'), variables('vmSshPasswordOsProfile'), variables('vmSshKeyOsProfile'))]",
+        "securityProfile": "[if(sonicwall.isLegacySku(variables('imageSku')), json('null'), variables('trustedLaunchSecurityProfile'))]",
         "storageProfile": {
           "imageReference": {
             "publisher": "[variables('imagePublisher')]",
             "offer": "[variables('imageOffer')]",
-            "sku": "[parameters('imageSku')]",
+            "sku": "[variables('imageSku')]",
             "version": "[variables('imageVersion')]"
           },
           "osDisk": {
